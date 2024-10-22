@@ -7,35 +7,43 @@ import numpy as np
 import random
 import structure_prediction_utils as utils
 from tensorflow import keras
-from keras.layers import Conv2D, Conv1D, Dense, LayerNormalization, MultiHeadAttention, Input, Add, Flatten, GlobalAveragePooling2D,Conv2DTranspose
+from keras.layers import Conv2D, Conv1D, Dense, LayerNormalization, MultiHeadAttention, Input, Add, Flatten, GlobalAveragePooling2D,Conv2DTranspose, UpSampling2D
 from keras.applications import ResNet50
 BATCH_SIZE=32
 
 class ProteinStructurePredictor0(keras.Model):
     def __init__(self):
         super().__init__()
-        
-        # Pre-trained ResNet50 model, remove the last layers and change input shape
-        self.resnet_base = ResNet50(weights=None, include_top=False, input_shape=(256, 256, 1))  # Reduced input shape for ResNet
 
-        # Adding an upsampling layer to expand the spatial dimensions to (256, 256)
-        self.upsample = Conv2DTranspose(1, kernel_size=32, strides=32, padding='same', activation='linear')  # Change kernel and strides as necessary
+        # Pre-trained ResNet50 model, removing the last layers
+        self.resnet_base = ResNet50(weights=None, include_top=False, input_shape=(256, 256, 1))  # Input shape for ResNet
 
-        # Adding a new attention layer and additional dense layers
-        self.attention = MultiHeadAttention(num_heads=8, key_dim=64)
-        self.layer_norm = LayerNormalization()
+        # Adding layers to upscale the output
+        self.upsample1 = UpSampling2D(size=(2, 2))  # Upscale from (8, 8) to (16, 16)
+        self.conv1 = Conv2D(128, kernel_size=3, padding='same', activation='relu')  # First Conv after upsampling
+        self.upsample2 = UpSampling2D(size=(2, 2))  # Upscale from (16, 16) to (32, 32)
+        self.conv2 = Conv2D(64, kernel_size=3, padding='same', activation='relu')  # Second Conv after upsampling
+        self.upsample3 = UpSampling2D(size=(8, 8))  # Upscale from (32, 32) to (256, 256)
+
+        # Final output layer to predict inter-residue distances
+        self.output_conv = Conv2D(1, kernel_size=3, padding='same', activation='linear')  # Output shape [batch_size, 256, 256]
 
     def call(self, inputs, mask=None):
         # Prepare input for the ResNet model
         distances_bc = self.prepare_input(inputs['primary_onehot'])
-        x = self.resnet_base(distances_bc)
+        x = self.resnet_base(distances_bc)  # Shape: (batch_size, 8, 8, 2048)
 
-        # Apply attention layer
-        #attn_output = self.attention(x, x)
-        #attn_output = self.layer_norm(attn_output)
+        # Upsample and process with Conv layers
+        x = self.upsample1(x)  # Shape: (batch_size, 16, 16, 2048)
+        x = self.conv1(x)      # Shape: (batch_size, 16, 16, 128)
 
-        # Upsample the attention output to (256, 256)
-        output = self.upsample(x)
+        x = self.upsample2(x)  # Shape: (batch_size, 32, 32, 128)
+        x = self.conv2(x)      # Shape: (batch_size, 32, 32, 64)
+
+        x = self.upsample3(x)  # Shape: (batch_size, 256, 256, 64)
+
+        # Final output layer to produce the desired shape
+        output = self.output_conv(x)  # Shape will be (batch_size, 256, 256, 1)
 
         return tf.squeeze(output, axis=-1)  # Remove the last dimension to get shape [batch_size, 256, 256]
 
@@ -46,6 +54,7 @@ class ProteinStructurePredictor0(keras.Model):
         distances_bc = tf.expand_dims(
             tf.broadcast_to(distances, [primary_onehot.shape[0], utils.NUM_RESIDUES, utils.NUM_RESIDUES]), -1)
         return tf.expand_dims(distances_bc, axis=-1)  # Add channel dimension
+
 
 
 def get_n_records(batch):
@@ -139,6 +148,6 @@ def main(data_folder):
 
 if __name__ == '__main__':
     local_home = os.path.expanduser("~")  # on my system this is /Users/jat171
-    data_folder = r"C:\Users\Rory\OneDrive - University of Canterbury\Desktop\University\Year 4\COSC440\Project\data"
+    data_folder = r"C:\Users\Rory\OneDrive - University of Canterbury\Desktop\University\Year 4\COSC440\Project\COSC440\data"
 
     main(data_folder)
