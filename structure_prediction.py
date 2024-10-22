@@ -143,7 +143,7 @@ def main(data_folder):
 
     test(model, test_records, True)
 
-    model.save(data_folder + '/model')
+    model.save(os.path.join(data_folder, '/model'))
 
 
 if __name__ == '__main__':
