@@ -7,7 +7,9 @@ import numpy as np
 import random
 import structure_prediction_utils as utils
 from tensorflow import keras
-from keras.layers import Conv2D, Conv1D, Dense, LayerNormalization, MultiHeadAttention, Input, Add, Flatten, GlobalAveragePooling2D,Conv2DTranspose, UpSampling2D
+from keras.layers import Conv2D, Conv1D, Dense, LayerNormalization, MultiHeadAttention, Input, Add, Flatten, GlobalAveragePooling2D,Conv2DTranspose, UpSampling2D, Dropout
+from keras.layers import MultiHeadAttention, Conv2DTranspose, Conv2D, Dropout, Reshape, Flatten, Dense
+
 from keras.applications import ResNet50
 BATCH_SIZE=32
 
@@ -56,6 +58,62 @@ class ProteinStructurePredictor0(keras.Model):
         return tf.expand_dims(distances_bc, axis=-1)  # Add channel dimension
 
 
+
+
+class ProteinStructurePredictor1(keras.Model):
+    def __init__(self):
+        super().__init__()
+
+        # ResNet50 model without pre-trained weights
+        self.resnet_base = ResNet50(weights=None, include_top=False, input_shape=(256, 256, 1))
+
+        # Multi-head self-attention
+        self.attention = MultiHeadAttention(num_heads=8, key_dim=64)
+
+        # Adding layers to upscale the output
+        self.conv_transpose1 = Conv2DTranspose(128, kernel_size=3, strides=(2, 2), padding='same', activation='relu')  # Upscale from (8, 8) to (16, 16)
+        self.conv1 = Conv2D(128, kernel_size=3, padding='same', activation='relu')
+
+        self.conv_transpose2 = Conv2DTranspose(64, kernel_size=3, strides=(2, 2), padding='same', activation='relu')  # Upscale from (16, 16) to (32, 32)
+        self.conv2 = Conv2D(64, kernel_size=3, padding='same', activation='relu')
+
+        self.conv_transpose3 = Conv2DTranspose(32, kernel_size=3, strides=(8, 8), padding='same', activation='relu')  # Upscale from (32, 32) to (256, 256)
+
+        # Dropout for regularization
+        self.dropout = Dropout(0.3)
+
+        # Final output layer to predict inter-residue distances
+        self.output_conv = Conv2D(1, kernel_size=3, padding='same', activation='linear')  # Output shape [batch_size, 256, 256, 1]
+
+    def call(self, inputs, mask=None):
+        # Prepare input for the ResNet model
+        distances_bc = self.prepare_input(inputs['primary_onehot'])
+        x = self.resnet_base(distances_bc)  # Shape: (batch_size, 8, 8, 2048)
+
+        # Upsample and process with Conv2DTranspose and Conv2D layers
+        x = self.conv_transpose1(x)  # Shape: (batch_size, 16, 16, 128)
+        x = self.conv1(x)  # Shape: (batch_size, 16, 16, 128)
+
+        x = self.conv_transpose2(x)  # Shape: (batch_size, 32, 32, 64)
+        x = self.conv2(x)  # Shape: (batch_size, 32, 32, 64)
+
+        x = self.conv_transpose3(x)  # Shape: (batch_size, 256, 256, 32)
+
+        # Dropout layer for regularization
+        x = self.dropout(x)
+
+        # Final output layer to produce the desired shape
+        output = self.output_conv(x)  # Shape will be (batch_size, 256, 256, 1)
+
+        return tf.squeeze(output, axis=-1)  # Remove the last dimension to get shape [batch_size, 256, 256]
+
+    def prepare_input(self, primary_onehot):
+        # Process distances_bc (assumed to be part of primary_onehot)
+        r = tf.range(0, utils.NUM_RESIDUES, dtype=tf.float32)
+        distances = tf.abs(tf.expand_dims(r, -1) - tf.expand_dims(r, -2))
+        distances_bc = tf.expand_dims(
+            tf.broadcast_to(distances, [primary_onehot.shape[0], utils.NUM_RESIDUES, utils.NUM_RESIDUES]), -1)
+        return tf.expand_dims(distances_bc, axis=-1)  # Add channel dimension
 
 def get_n_records(batch):
     return batch['primary_onehot'].shape[0]
@@ -127,7 +185,7 @@ def main(data_folder):
     validate_records = utils.load_preprocessed_data(data_folder, 'validation.tfr')
     test_records = utils.load_preprocessed_data(data_folder, 'testing.tfr')
 
-    model = ProteinStructurePredictor0()
+    model = ProteinStructurePredictor1()
     model.optimizer = keras.optimizers.Adam(learning_rate=1e-6)
     model.batch_size = BATCH_SIZE
     epochs = 5
