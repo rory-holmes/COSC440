@@ -1,0 +1,52 @@
+Predictor0:
+
+    Start:
+    train loss 217136922624.000 train mse loss 217136922624.000 validate mse loss 222745296896.000
+
+    Epoch 0:
+    train loss 220156854272.000 train mse loss 220156854272.000 validate mse loss 222407950336.000
+    test mse loss 228550721536.000
+
+    Epoch 1:
+    train loss 216964153344.000 train mse loss 216964153344.000 validate mse loss 183668572160.000
+
+    test mse loss 187770994688.000
+
+    Epoch 2:
+    train loss 170974396416.000 train mse loss 170974396416.000 validate mse loss 167008190464.000
+    test mse loss 170350231552.000
+
+    Epoch 3:
+    train loss 172868272128.000 train mse loss 172868272128.000 validate mse loss 159775801344.000
+    test mse loss 163089285120.000
+
+    Epoch 4:
+    train loss 146982486016.000 train mse loss 146982486016.000 validate mse loss 157040312320.000
+    test mse loss 160247103488.000
+
+Predictor1:
+    Start:
+    train loss 272815243264.000 train mse loss 272815243264.000 validate mse loss 222886920192.000
+
+    Epoch 0:
+    train loss 74798186496.000 train mse loss 74798186496.000 validate mse loss 61830696960.000
+    test mse loss 59203330048.000
+
+    train loss 57856098304.000 train mse loss 57856098304.000 validate mse loss 61190070272.000
+    test mse loss 58514964480.000
+
+    Epoch 1:
+    train loss 54646325248.000 train mse loss 54646325248.000 validate mse loss 48888786944.000
+    test mse loss 45697966080.000
+
+    Epoch 2:
+    train loss 38559817728.000 train mse loss 38559817728.000 validate mse loss 41959419904.000
+    test mse loss 37699948544.000
+
+    Epoch 3:
+    train loss 41948311552.000 train mse loss 41948311552.000 validate mse loss 40717344768.000
+    test mse loss 37189595136.000
+
+    Epoch 4:
+    train loss 42008797184.000 train mse loss 42008797184.000 validate mse loss 39560581120.000
+    test mse loss 35711922176.000
